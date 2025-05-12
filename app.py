@@ -4,8 +4,8 @@ import torch
 import os
 from utils import extract_text_from_pdf, extract_text_from_word, process_text, get_answer
 
-tokenizer = AutoTokenizer.from_pretrained("path_to_your_trained_model")
-model = AutoModelForQuestionAnswering.from_pretrained("path_to_your_trained_model")
+tokenizer = AutoTokenizer.from_pretrained("model/your_model_directory", force_download=True)
+model = AutoModelForQuestionAnswering.from_pretrained("model/your_model_directory", force_download=True)
 
 st.title("Internal Knowledge Bot")
 
