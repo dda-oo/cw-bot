@@ -1,7 +1,5 @@
 streamlit
 sentence-transformers
-scikit-learn
-torch
-pdfplumber
+PyPDF2
 python-docx
-glob
+scikit-learn
