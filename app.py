@@ -233,7 +233,7 @@ def generate_response(query, relevant_docs, query_lang):
 def sidebar():
     """Create a sidebar with information about the bot"""
     with st.sidebar:
-        st.title("🧑‍💼 HR Bot Info")
+        st.title("🧑‍💼 MAAP Bot Info")
         st.markdown("""
         ### How to use:
         1. Ask questions in English or German
@@ -273,7 +273,7 @@ def sidebar():
                 st.experimental_rerun()
 
 def main():
-    st.title("🧑‍💼 HR Assistant Bot")
+    st.title("🧑‍💼 MAAP Assistant Bot")
     
     sidebar()
     
