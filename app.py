@@ -30,11 +30,9 @@ def load_docx_from_github(file_url):
 
 def load_docs():
     doc_urls = [
-        "https://github.com/dda-oo/cw-bot/blob/main/docs/MAAP%202024_LoginGuide_DE.pdf",
-        "https://github.com/dda-oo/cw-bot/blob/main/docs/MAAP%202024_Planbedingungen.pdf",
-        "https://github.com/dda-oo/cw-bot/blob/main/docs/QS%20Ordentliche%20virtuelle%20Hauptversammlung.docx"
-        "https://github.com/dda-oo/cw-bot/blob/main/docs/password%20recovery%20process.pdf"
-    ]
+        "https://github.com/dda-oo/cw-bot/blob/84bc6ad19a0223f6790de5fce68d34053bfa934c/docs/QS%20Ordentliche%20virtuelle%20Hauptversammlung.docx",
+        "https://github.com/dda-oo/cw-bot/blob/84bc6ad19a0223f6790de5fce68d34053bfa934c/docs/MAAP%202024_Planbedingungen.pdf",
+          ]
     
     all_text = ""
     for url in doc_urls:
