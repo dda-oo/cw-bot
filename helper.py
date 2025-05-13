@@ -18,6 +18,9 @@ def load_texts(data_path="data"):
     """
     texts = []
     
+    # Debug directory path
+    st.sidebar.write(f"Looking for documents in: '{os.path.abspath(data_path)}'")
+    
     # Check if directory exists
     if not os.path.exists(data_path):
         st.error(f"Data directory '{data_path}' not found. Please create this directory and add your documents.")
@@ -26,11 +29,20 @@ def load_texts(data_path="data"):
     # Get list of files
     try:
         files = os.listdir(data_path)
+        
+        # Debug information - show all files including hidden ones
+        st.sidebar.write(f"All files in directory: {files}")
+        
+        if len(files) == 0:
+            st.warning(f"No files found in data directory '{data_path}'")
+            return texts
+            
     except Exception as e:
         st.error(f"Error accessing data directory: {str(e)}")
         return texts
     
     # Process each file
+    successful_files = 0
     for filename in files:
         path = os.path.join(data_path, filename)
         
@@ -58,16 +70,39 @@ def load_texts(data_path="data"):
                     st.warning(f"Error reading DOCX file '{filename}': {str(e)}")
                     continue
             
+            # Process TXT files
+            elif filename.lower().endswith(".txt"):
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        text = f.read()
+                except UnicodeDecodeError:
+                    # Try with different encoding if UTF-8 fails
+                    try:
+                        with open(path, 'r', encoding='latin-1') as f:
+                            text = f.read()
+                    except Exception as e:
+                        st.warning(f"Error reading TXT file '{filename}': {str(e)}")
+                        continue
+                except Exception as e:
+                    st.warning(f"Error reading TXT file '{filename}': {str(e)}")
+                    continue
+            
             # Skip other file types
             else:
                 continue
             
             # Only add if we extracted meaningful text
-            if text.strip():
+            if text and text.strip():
                 texts.append({"source": filename, "text": text})
+                successful_files += 1
+            else:
+                st.warning(f"No text content extracted from '{filename}'")
                 
         except Exception as e:
             st.warning(f"Error processing file '{filename}': {str(e)}")
+    
+    # Final status
+    st.sidebar.write(f"Successfully loaded {successful_files} documents")
     
     return texts
 
