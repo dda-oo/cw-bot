@@ -1,5 +1,6 @@
 import streamlit as st
 import numpy as np
+import os
 from sentence_transformers import SentenceTransformer
 from helper import load_texts, build_knowledge_base
 import torch
@@ -193,20 +194,24 @@ if question and (search_button or st.session_state.get('search_triggered', False
                     st.write(f"Number of sources: {len(sources)}")
                 # Don't expose full traceback to users
 
-# Add sidebar with instructions and info
-with st.sidebar:
-    st.subheader("About")
-    st.markdown("""
-    This bot answers questions based on your internal documents.
-    It can understand questions in multiple languages and find relevant information.
-    """)
+# Add a file upload option directly in the main app
+with st.sidebar.expander("Upload Document", expanded=False):
+    uploaded_file = st.file_uploader("Upload PDF, DOCX, or TXT", type=["pdf", "docx", "txt"])
     
-    st.subheader("How to use")
-    st.markdown("""
-    1. Type your question in any language
-    2. Click the Search button
-    3. View the most relevant answers from your documents
-    """)
+    if uploaded_file is not None:
+        # Create data directory if it doesn't exist
+        if not os.path.exists("data"):
+            os.makedirs("data")
+            
+        # Save the uploaded file
+        file_path = os.path.join("data", uploaded_file.name)
+        try:
+            with open(file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            st.success(f"File '{uploaded_file.name}' successfully uploaded!")
+            st.warning("Please refresh the page to use the newly uploaded document.")
+        except Exception as e:
+            st.error(f"Error saving file: {str(e)}")
     
     # Add expandable technical details
     with st.expander("Technical Details"):
