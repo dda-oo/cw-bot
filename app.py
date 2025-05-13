@@ -10,7 +10,7 @@ st.title("🧠 Multilingual Internal FAQ Bot")
 @st.cache_resource
 def load_model_and_data():
     model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
-    texts = load_texts("data")  # This will load documents from the 'data' folder
+    texts = load_texts("data")
     chunks, embeddings, sources = build_knowledge_base(texts, model)
     return model, chunks, embeddings, sources
 
