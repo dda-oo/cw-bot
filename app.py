@@ -27,8 +27,7 @@ def load_documents():
     documents = []
     
     # Get all .txt, .md files from the data directory
-    file_paths = glob.glob("data/*.txt") + glob.glob("data/*.md")
-         
+    file_paths = glob.glob("data/*.txt") + glob.glob("data/*.md")   
     
     st.write(f"Found files: {file_paths}")
     
