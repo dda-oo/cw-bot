@@ -7,6 +7,23 @@ import langid
 from transformers import pipeline
 import streamlit as st
 
+def load_pdf_from_github(file_url):
+    try:
+        response = requests.get(file_url)
+        if response.status_code == 200:
+            with pdfplumber.open(BytesIO(response.content)) as pdf:
+                text = ""
+                for page in pdf.pages:
+                    text += page.extract_text()
+            return text
+        else:
+            st.error(f"Failed to fetch PDF file from: {file_url}")
+            return None
+    except Exception as e:
+        st.error(f"Error reading PDF from {file_url}: {e}")
+        return None
+
+
 # Function to load PDF files from a GitHub repository
 def load_pdf_from_github(file_url):
     try:
@@ -24,20 +41,23 @@ def load_pdf_from_github(file_url):
         return None
 
 # Function to load DOCX files from a GitHub repository
-def load_docx_from_github(file_url):
-    try:
-        response = requests.get(file_url)
-        if response.status_code == 200:
-            doc = docx.Document(BytesIO(response.content))
-            text = ""
-            for para in doc.paragraphs:
-                text += para.text
-            return text
-        else:
-            return None
-    except Exception as e:
-        st.error(f"Error reading DOCX: {e}")
-        return None
+def load_docs_from_github():
+    repo_url = "yourusername/yourrepo"  # Replace with your GitHub repo
+    folder_path = "docs"  # Replace with the folder where your docs are stored
+    
+    # Get all files from the folder on GitHub
+    file_urls = get_github_files(repo_url, folder_path)
+    
+    all_text = ""
+    for url in file_urls:
+        st.write(f"Processing file: {url}")  # Debug output
+        if url.endswith(".pdf"):
+            all_text += load_pdf_from_github(url)
+        elif url.endswith(".docx"):
+            all_text += load_docx_from_github(url)
+        # Add other formats as needed (e.g., PPTX, TXT)
+    return all_text
+
 
 # Function to get all files from a GitHub repository folder
 def get_github_files(repo_url, folder_path):
