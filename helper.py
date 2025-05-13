@@ -144,7 +144,9 @@ def build_knowledge_base(texts, model):
     
     # Return empty results if no chunks were created
     if not all_chunks:
-        return [], np.array([]), []
+        st.warning("No text chunks were extracted from the documents. Please check your data files.")
+        # Return a single dummy chunk to avoid dimension errors
+        return ["No content found in documents"], np.zeros((1, 384)), ["None"]
     
     # Create embeddings
     try:
@@ -153,4 +155,5 @@ def build_knowledge_base(texts, model):
         return all_chunks, embeddings, sources
     except Exception as e:
         st.error(f"Error creating embeddings: {str(e)}")
-        return [], np.array([]), []
+        # Return a single dummy chunk to avoid dimension errors
+        return ["Error processing documents"], np.zeros((1, 384)), ["Error"]
