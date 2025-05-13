@@ -1,11 +1,8 @@
-streamlit
-langchain
-langchain-community
-faiss-cpu
-huggingface-hub
-sentence-transformers
+streamlit==1.17.0
+langchain==0.0.120
+langchain-community==0.0.1
+faiss-cpu==1.7.4
 googletrans==4.0.0rc1
-langdetect
-docx2txt
-PyPDF2
 pydantic==1.10.13
+docx2txt==0.8
+PyPDF2==1.26.0
