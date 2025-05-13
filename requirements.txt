@@ -1,8 +1,6 @@
 streamlit
-langdetect
-sentence-transformers
-PyMuPDF
-python-docx
-python-pptx
-scikit-learn
-deep-translator
+requests
+transformers
+PyPDF2
+docx
+langid
