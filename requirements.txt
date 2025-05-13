@@ -1,6 +1,7 @@
-requests
-pdfplumber
-docx
-transformers
 streamlit
-langid
+sentence-transformers
+scikit-learn
+torch
+pdfplumber
+python-docx
+glob
