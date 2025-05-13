@@ -20,7 +20,11 @@ question = st.text_input("Frage stellen (z. B. auf Deutsch, Englisch, etc.):")
 
 if question:
     # Encoding the question and converting it to a numpy array
-    q_embed = model.encode([question], convert_to_tensor=False)  # Setting convert_to_tensor=False to get a numpy array
+    q_embed = model.encode([question], convert_to_tensor=False)  # Set convert_to_tensor=False to get a numpy array
+
+    # Ensure that q_embed is 2D (it should have shape (1, embedding_dim))
+    q_embed = q_embed.reshape(1, -1)  # Reshape to 2D if it's 1D
+
     # Convert embeddings to numpy arrays if they're in tensor form
     embeddings_np = embeddings.cpu().numpy() if isinstance(embeddings, torch.Tensor) else embeddings
 
