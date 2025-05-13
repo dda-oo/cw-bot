@@ -3,6 +3,7 @@ from sentence_transformers import SentenceTransformer
 from helper import load_texts, build_knowledge_base
 from sklearn.metrics.pairwise import cosine_similarity
 import torch
+import numpy as np
 
 st.set_page_config(page_title="Multilingual FAQ Bot", layout="wide")
 st.title("🧠 Multilingual Internal FAQ Bot")
@@ -21,13 +22,19 @@ question = st.text_input("Frage stellen (z. B. auf Deutsch, Englisch, etc.):")
 if question:
     # Encoding the question and converting it to a numpy array
     q_embed = model.encode([question], convert_to_tensor=False)  # Set convert_to_tensor=False to get a numpy array
-
+    
+    # Debug: Check the shape of q_embed
+    st.write(f"Shape of q_embed: {q_embed.shape}")  # Log the shape of the question embedding
+    
     # Ensure that q_embed is 2D (it should have shape (1, embedding_dim))
     q_embed = q_embed.reshape(1, -1)  # Reshape to 2D if it's 1D
-
+    
     # Convert embeddings to numpy arrays if they're in tensor form
     embeddings_np = embeddings.cpu().numpy() if isinstance(embeddings, torch.Tensor) else embeddings
-
+    
+    # Debug: Check the shape of embeddings
+    st.write(f"Shape of embeddings_np: {embeddings_np.shape}")  # Log the shape of the embeddings
+    
     # Compute cosine similarity
     sims = cosine_similarity(q_embed, embeddings_np)[0]  # Ensure we're comparing numpy arrays
     top_idx = sims.argmax()  # Get the index of the most similar chunk
