@@ -1,5 +1,8 @@
-markdown-it-py==3.0.0
-mdurl==0.1.2
-pygments==2.19.1
-rich==14.0.0
-streamlit==1.20.0  # Make sure to use the appropriate version
+streamlit
+transformers
+sentence-transformers
+langdetect
+datasets
+faiss-cpu
+torch
+python-dotenv
