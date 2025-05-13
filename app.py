@@ -9,6 +9,7 @@ import pdfplumber
 from docx import Document
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
+import time
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -22,12 +23,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Add debugging messages in UI
+DEBUG_MODE = True
+
 # ----------------- Load Sentence Transformer -----------------
 @st.cache_resource
 def load_embedding_model():
     """Load and cache the multilingual sentence transformer model"""
-    with st.spinner("Loading language model (first run may take a minute)..."):
-        return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+    # Use a smaller, faster model for better performance
+    start_time = time.time()
+    model = SentenceTransformer('distiluse-base-multilingual-cased-v1')
+    load_time = time.time() - start_time
+    if DEBUG_MODE:
+        st.sidebar.info(f"Model loaded in {load_time:.2f} seconds")
+    return model
 
 # ----------------- Language Detection -----------------
 def detect_language(text):
@@ -83,12 +92,19 @@ def load_documents():
     
     if not file_paths:
         logger.warning("No documents found in the data folder")
+        if DEBUG_MODE:
+            st.sidebar.warning("No documents found in the data folder")
         return []
     
-    logger.info(f"Found {len(file_paths)} files to process")
+    if DEBUG_MODE:
+        st.sidebar.info(f"Found {len(file_paths)} files to process")
     
+    total_chunks = 0
     for file_path in file_paths:
         try:
+            if DEBUG_MODE:
+                st.sidebar.info(f"Processing: {file_path}")
+                
             ext = os.path.splitext(file_path)[1].lower()
             content = ""
             
@@ -101,11 +117,14 @@ def load_documents():
                 
             if not content.strip():
                 logger.warning(f"No content extracted from {file_path}")
+                if DEBUG_MODE:
+                    st.sidebar.warning(f"No content extracted from {file_path}")
                 continue
                 
             # Split into chunks - paragraphs or sentences for better search results
             chunks = split_into_chunks(content)
             
+            file_chunks = 0
             for chunk in chunks:
                 if len(chunk) >= 20:  # Only include meaningful chunks
                     lang = detect_language(chunk)
@@ -114,13 +133,23 @@ def load_documents():
                         "source": os.path.basename(file_path),
                         "language": lang
                     })
+                    file_chunks += 1
+            
+            total_chunks += file_chunks
+            if DEBUG_MODE:
+                st.sidebar.success(f"Added {file_chunks} chunks from {os.path.basename(file_path)}")
                     
         except Exception as e:
             logger.error(f"Error processing {file_path}: {str(e)}")
+            if DEBUG_MODE:
+                st.sidebar.error(f"Error processing {file_path}: {str(e)}")
+    
+    if DEBUG_MODE:
+        st.sidebar.success(f"Total chunks processed: {total_chunks}")
     
     return documents
 
-def split_into_chunks(text, max_length=500):
+def split_into_chunks(text, max_length=300):  # Reduced from 500 to 300 for better performance
     """Split text into manageable chunks for better search results"""
     # First try to split by paragraphs
     paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
@@ -160,35 +189,49 @@ def search_documents(query, documents, embedding_model, top_k=3):
         return []
     
     try:
+        start_time = time.time()
+        
+        # Limit the search to optimize performance
+        max_docs_to_search = min(100, len(documents))  # Only search through first 100 documents
+        docs_to_search = documents[:max_docs_to_search]
+        
         # Convert query to embedding vector
-        query_embedding = embedding_model.encode([query], convert_to_tensor=True).cpu().numpy()
+        query_embedding = embedding_model.encode(query, convert_to_tensor=False)
         
         # Get all document texts
-        doc_texts = [doc["text"] for doc in documents]
+        doc_texts = [doc["text"] for doc in docs_to_search]
         
         # Convert all documents to embedding vectors in one batch (more efficient)
-        doc_embeddings = embedding_model.encode(doc_texts, convert_to_tensor=True).cpu().numpy()
+        doc_embeddings = embedding_model.encode(doc_texts, convert_to_tensor=False, show_progress_bar=False)
         
-        # Calculate similarity scores using cosine similarity
-        similarities = cosine_similarity(query_embedding, doc_embeddings)[0]
-        
-        # Create results with documents and their similarity scores
-        results = [(documents[i], similarities[i]) for i in range(len(documents))]
+        # Calculate similarities
+        similarities = []
+        for i, doc_embedding in enumerate(doc_embeddings):
+            # Calculate cosine similarity manually to avoid memory issues
+            similarity = np.dot(query_embedding, doc_embedding) / (
+                np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding)
+            )
+            similarities.append((docs_to_search[i], similarity))
         
         # Sort by similarity score (highest first)
-        results.sort(key=lambda x: x[1], reverse=True)
-        
-        # Debug info
-        logger.info(f"Top result similarity: {results[0][1] if results else 'No results'}")
+        similarities.sort(key=lambda x: x[1], reverse=True)
         
         # Filter results with low relevance
-        filtered_results = [(doc, score) for doc, score in results if score > 0.3]
+        filtered_results = [(doc, score) for doc, score in similarities if score > 0.3]
+        
+        search_time = time.time() - start_time
+        if DEBUG_MODE:
+            st.sidebar.info(f"Search completed in {search_time:.2f} seconds")
+            if filtered_results:
+                st.sidebar.info(f"Top result similarity: {filtered_results[0][1]:.4f}")
         
         # Return top_k results
         return [item[0] for item in filtered_results[:top_k]]
     
     except Exception as e:
         logger.error(f"Error during document search: {str(e)}")
+        if DEBUG_MODE:
+            st.sidebar.error(f"Search error: {str(e)}")
         return []
 
 # ----------------- Handle Multilingual Display -----------------
@@ -250,46 +293,75 @@ def generate_response(query, relevant_docs, query_lang):
     
     return response
 
+# ----------------- File Uploader -----------------
+def upload_files():
+    """Allow user to upload files directly from the UI"""
+    uploaded_files = st.file_uploader("Upload HR documents", 
+                                    type=["pdf", "docx", "txt"], 
+                                    accept_multiple_files=True)
+    
+    if uploaded_files:
+        # Create data directory if it doesn't exist
+        os.makedirs("data", exist_ok=True)
+        
+        for uploaded_file in uploaded_files:
+            # Save uploaded file to data directory
+            with open(os.path.join("data", uploaded_file.name), "wb") as f:
+                f.write(uploaded_file.getbuffer())
+        
+        st.success(f"Successfully uploaded {len(uploaded_files)} files")
+        # Clear session state to reload documents
+        if "documents" in st.session_state:
+            del st.session_state.documents
+        st.experimental_rerun()
+
 # ----------------- Streamlit Sidebar -----------------
 def sidebar():
     """Create a sidebar with information about the bot"""
     with st.sidebar:
         st.title("🧑‍💼 HR Bot Info")
+        
+        # File uploader
+        st.subheader("Upload Documents")
+        upload_files()
+        
         st.markdown("""
         ### How to use:
-        1. Place your HR documents in the `/data` folder
+        1. Upload your HR documents using the uploader above
         2. Ask questions in English or German
         3. The bot will search through the documents and find the most relevant information
-        
-        ### Supported file types:
-        - PDF (.pdf)
-        - Word (.docx)
-        - Text (.txt)
         """)
+        
+        # Debug section
+        if DEBUG_MODE:
+            st.subheader("Debug Information")
+            st.markdown("This section shows processing details")
         
         # Show document stats
         if "documents" in st.session_state and st.session_state.documents:
             st.subheader("Document Statistics")
             docs = st.session_state.documents
             total_chunks = len(docs)
-            lang_counts = {}
-            file_counts = {}
             
-            for doc in docs:
-                lang = doc["language"]
-                source = doc["source"]
-                lang_counts[lang] = lang_counts.get(lang, 0) + 1
-                file_counts[source] = file_counts.get(source, 0) + 1
-            
-            st.markdown(f"**Total text chunks:** {total_chunks}")
-            
-            st.markdown("**Languages detected:**")
-            for lang, count in lang_counts.items():
-                st.markdown(f"- {lang}: {count} chunks")
-            
-            st.markdown("**Source files:**")
-            for source, count in file_counts.items():
-                st.markdown(f"- {source}: {count} chunks")
+            if total_chunks > 0:
+                lang_counts = {}
+                file_counts = {}
+                
+                for doc in docs:
+                    lang = doc["language"]
+                    source = doc["source"]
+                    lang_counts[lang] = lang_counts.get(lang, 0) + 1
+                    file_counts[source] = file_counts.get(source, 0) + 1
+                
+                st.markdown(f"**Total text chunks:** {total_chunks}")
+                
+                st.markdown("**Languages detected:**")
+                for lang, count in lang_counts.items():
+                    st.markdown(f"- {lang}: {count} chunks")
+                
+                st.markdown("**Source files:**")
+                for source, count in file_counts.items():
+                    st.markdown(f"- {source}: {count} chunks")
             
             if st.button("Clear Chat History"):
                 st.session_state.messages = []
@@ -303,15 +375,19 @@ def main():
     sidebar()
     
     # Load model
-    embedding_model = load_embedding_model()
+    with st.spinner("Loading language model..."):
+        embedding_model = load_embedding_model()
     
     # Load documents (only once when app starts)
     if "documents" not in st.session_state:
         with st.spinner("Loading and processing HR documents..."):
             st.session_state.documents = load_documents()
     
+    # Check if documents were loaded
     if not st.session_state.documents:
-        st.warning("⚠️ No documents found in the data folder. Please upload PDF, DOCX, or TXT files to the /data folder.")
+        st.info("📄 Please upload your HR documents using the uploader in the sidebar to get started.")
+    else:
+        st.success(f"✅ {len(st.session_state.documents)} text chunks loaded and ready for searching.")
     
     # Initialize message history
     if "messages" not in st.session_state:
