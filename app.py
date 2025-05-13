@@ -88,7 +88,21 @@ def load_model_and_data():
             # Using multilingual model that supports 50+ languages
             model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
             docs = load_texts("data")
+            
+            # Check if any documents were loaded
+            if not docs:
+                st.warning("No documents found in the data directory. Please add PDF or DOCX files.")
+                # Return a model and dummy data to avoid crashes
+                dummy_chunks = ["No documents found"]
+                dummy_embeddings = np.zeros((1, 384))  # 384 is the embedding size for this model
+                dummy_sources = ["None"]
+                return model, dummy_chunks, dummy_embeddings, dummy_sources, True
+                
             chunks, embeddings, sources = build_knowledge_base(docs, model)
+            
+            # Debug information
+            st.sidebar.expander("Debug Info", expanded=False).write(f"Loaded {len(chunks)} chunks from {len(docs)} documents")
+            
             return model, chunks, embeddings, sources, True
         except Exception as e:
             st.error(f"Error loading model or data: {str(e)}")
@@ -118,6 +132,11 @@ if question and (search_button or st.session_state.get('search_triggered', False
     
     with st.spinner("Searching..."):
         try:
+            # Check if embeddings are valid
+            if len(embeddings) == 0 or (isinstance(embeddings, np.ndarray) and embeddings.size == 0):
+                st.warning("No document embeddings available. Please check that your data directory contains valid documents.")
+                st.stop()
+                
             # Encode the question using the model
             q_embed = model.encode([question], convert_to_tensor=True)
             
@@ -125,13 +144,26 @@ if question and (search_button or st.session_state.get('search_triggered', False
             q_embed_np = q_embed.cpu().numpy()
             embeddings_np = embeddings.cpu().numpy() if isinstance(embeddings, torch.Tensor) else embeddings
             
+            # Debug shape information
+            st.sidebar.expander("Debug Info", expanded=False).write(f"Query shape: {q_embed_np.shape}, Embeddings shape: {embeddings_np.shape}")
+            
+            # Safety check for dimensions
+            if q_embed_np.shape[1] != embeddings_np.shape[1]:
+                st.error(f"Dimension mismatch: Query dim {q_embed_np.shape[1]} != Embeddings dim {embeddings_np.shape[1]}")
+                st.stop()
+            
             # Calculate cosine similarity
             similarities = np.dot(q_embed_np, embeddings_np.T)[0] / (
-                np.linalg.norm(q_embed_np) * np.linalg.norm(embeddings_np, axis=1)
+                np.linalg.norm(q_embed_np) * np.linalg.norm(embeddings_np, axis=1) + 1e-8  # Add small epsilon to avoid division by zero
             )
             
-            # Get top 3 results
-            top_indices = np.argsort(similarities)[::-1][:3]
+            # Get top 3 results (or fewer if not enough chunks)
+            num_results = min(3, len(chunks))
+            if num_results == 0:
+                st.warning("No document chunks available to search.")
+                st.stop()
+                
+            top_indices = np.argsort(similarities)[::-1][:num_results]
             
             # Display results if similarity is above threshold
             if similarities[top_indices[0]] > 0.3:  # Minimum similarity threshold
@@ -145,6 +177,21 @@ if question and (search_button or st.session_state.get('search_triggered', False
                 st.info(texts['no_answer'])
         except Exception as e:
             st.error(f"An error occurred during search: {str(e)}")
+            st.error("Try changing your question or uploading different documents.")
+            # Add detailed debug information in expandable section
+            with st.expander("Technical Details", expanded=False):
+                st.write(f"Error type: {type(e).__name__}")
+                st.write(f"Model info: {type(model).__name__}")
+                if chunks:
+                    st.write(f"Number of chunks: {len(chunks)}")
+                if embeddings is not None:
+                    if isinstance(embeddings, np.ndarray):
+                        st.write(f"Embeddings shape: {embeddings.shape}")
+                    else:
+                        st.write(f"Embeddings type: {type(embeddings)}")
+                if sources:
+                    st.write(f"Number of sources: {len(sources)}")
+                # Don't expose full traceback to users
 
 # Add sidebar with instructions and info
 with st.sidebar:
