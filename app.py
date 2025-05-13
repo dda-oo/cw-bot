@@ -7,7 +7,7 @@ import re
 import numpy as np
 
 # Page configuration
-st.set_page_config(page_title="Simple HR Assistant", layout="centered")
+st.set_page_config(page_title="HR Assistant Bot", layout="centered")
 
 # Cache the loading of models to improve performance
 @st.cache_resource
@@ -27,7 +27,9 @@ def load_documents():
     documents = []
     
     # Get all .txt, .md files from the data directory
-    file_paths = glob.glob("data/*.txt") + glob.glob("data/*.md")
+    file_paths = glob.glob("data/*.*")
+    
+    st.write(f"Found files: {file_paths}")
     
     for file_path in file_paths:
         try:
@@ -36,12 +38,21 @@ def load_documents():
                 
                 # Split into paragraphs
                 paragraphs = content.split('\n\n')
+                
+                # Process each paragraph
                 for paragraph in paragraphs:
-                    if len(paragraph.strip()) > 20:  # Only include meaningful paragraphs
+                    # Only include meaningful paragraphs
+                    if len(paragraph.strip()) > 20:
+                        # Clean text
+                        clean_paragraph = re.sub(r'\s+', ' ', paragraph).strip()
+                        
+                        # Detect language
+                        lang = detect_language(clean_paragraph)
+                        
                         documents.append({
-                            "text": paragraph.strip(),
+                            "text": clean_paragraph,
                             "source": os.path.basename(file_path),
-                            "language": detect_language(paragraph)
+                            "language": lang
                         })
         except Exception as e:
             st.error(f"Error loading {file_path}: {str(e)}")
@@ -53,15 +64,25 @@ def search_documents(query, documents, embedding_model, top_k=3):
     if not documents:
         return []
     
-    # Create embeddings
+    # Create embeddings for query
     query_embedding = embedding_model.encode(query, convert_to_tensor=True)
+    query_embedding = query_embedding.cpu().numpy()
     
     # Calculate similarities and find top matches
     results = []
     for doc in documents:
-        doc_embedding = embedding_model.encode(doc["text"], convert_to_tensor=True)
-        similarity = np.dot(query_embedding.cpu().numpy(), doc_embedding.cpu().numpy())  # Cosine similarity
-        results.append((doc, similarity))
+        try:
+            doc_embedding = embedding_model.encode(doc["text"], convert_to_tensor=True)
+            doc_embedding = doc_embedding.cpu().numpy()
+            
+            # Calculate cosine similarity
+            similarity = np.dot(query_embedding, doc_embedding) / (
+                np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding)
+            )
+            
+            results.append((doc, similarity))
+        except Exception as e:
+            st.error(f"Error processing document: {str(e)}")
     
     # Sort by similarity (highest first)
     results.sort(key=lambda x: x[1], reverse=True)
@@ -77,11 +98,13 @@ def handle_language_difference(doc_text, doc_lang, query_lang):
             return f"{doc_text} [Translated from German]"
         elif doc_lang == "en" and query_lang == "de":
             return f"{doc_text} [Übersetzt aus dem Englischen]"
+        else:
+            return f"{doc_text} [Original in {doc_lang}]"
     return doc_text
 
 # Main application
 def main():
-    st.title("Simple HR Assistant")
+    st.title("HR Assistant Bot")
     
     # Load embedding model
     with st.spinner("Loading language model..."):
@@ -94,17 +117,18 @@ def main():
         st.warning("No documents found in the data folder. Please add HR documents to the data folder in your GitHub repository.")
     else:
         st.success(f"Loaded {len(documents)} paragraphs from HR documents.")
-    
-    # Display language distribution
-    languages = [doc["language"] for doc in documents]
-    language_counts = {}
-    for lang in languages:
-        if lang in language_counts:
-            language_counts[lang] += 1
-        else:
-            language_counts[lang] = 1
-    
-    st.write(f"Document languages: {', '.join([f'{lang} ({count})' for lang, count in language_counts.items()])}")
+        
+        # Display language distribution
+        languages = [doc["language"] for doc in documents]
+        language_counts = {}
+        for lang in languages:
+            if lang in language_counts:
+                language_counts[lang] += 1
+            else:
+                language_counts[lang] = 1
+        
+        lang_display = ", ".join([f"{lang} ({count})" for lang, count in language_counts.items()])
+        st.write(f"Document languages: {lang_display}")
     
     # Chat interface
     st.subheader("Ask your HR question")
@@ -138,6 +162,7 @@ def main():
             relevant_docs = search_documents(query, documents, embedding_model)
             
             if relevant_docs:
+                # Adapt response based on query language
                 if query_lang == "de":
                     response = f"Hier ist, was ich in den HR-Dokumenten gefunden habe:\n\n"
                 else:
@@ -151,11 +176,13 @@ def main():
                     processed_text = handle_language_difference(doc["text"], doc_lang, query_lang)
                     response += f"- {processed_text}\n\n"
                 
+                # Add sources
                 if query_lang == "de":
                     response += f"Quellen: {', '.join(set(doc['source'] for doc in relevant_docs))}"
                 else:
                     response += f"Sources: {', '.join(set(doc['source'] for doc in relevant_docs))}"
             else:
+                # No results found
                 if query_lang == "de":
                     response = "Ich konnte keine spezifischen Informationen darüber in den HR-Dokumenten finden."
                 else:
