@@ -19,8 +19,15 @@ model, chunks, embeddings, sources = load_model_and_data()
 question = st.text_input("Frage stellen (z. B. auf Deutsch, Englisch, etc.):")
 
 if question:
-    q_embed = model.encode([question], convert_to_tensor=True)
-    sims = cosine_similarity(q_embed.cpu(), embeddings.cpu())[0]
-    top_idx = sims.argmax()
+    # Encoding the question and converting it to a numpy array
+    q_embed = model.encode([question], convert_to_tensor=False)  # Setting convert_to_tensor=False to get a numpy array
+    # Convert embeddings to numpy arrays if they're in tensor form
+    embeddings_np = embeddings.cpu().numpy() if isinstance(embeddings, torch.Tensor) else embeddings
+
+    # Compute cosine similarity
+    sims = cosine_similarity(q_embed, embeddings_np)[0]  # Ensure we're comparing numpy arrays
+    top_idx = sims.argmax()  # Get the index of the most similar chunk
+
+    # Display the answer
     st.markdown(f"**Antwort:** {chunks[top_idx]}")
     st.caption(f"Quelle: {sources[top_idx]}")
