@@ -236,9 +236,8 @@ def sidebar():
         st.title("🧑‍💼 HR Bot Info")
         st.markdown("""
         ### How to use:
-        1. Place your HR documents in the `/data` folder
-        2. Ask questions in English or German
-        3. The bot will search through the documents and find the most relevant information
+        1. Ask questions in English or German
+        2. The bot will search through the documents and find the most relevant information
         
         ### Supported file types:
         - PDF (.pdf)
