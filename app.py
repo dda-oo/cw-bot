@@ -8,6 +8,8 @@ from langchain.llms import HuggingFaceHub
 from langdetect import detect
 from googletrans import Translator
 import os
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+
 
 # Set up once
 st.set_page_config(page_title="HR Bot", layout="wide")
