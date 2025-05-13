@@ -1,6 +1,6 @@
-streamlit
 requests
-transformers
-PyPDF2
+pdfplumber
 docx
+transformers
+streamlit
 langid
