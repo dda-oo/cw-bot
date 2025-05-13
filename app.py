@@ -1,28 +1,26 @@
 import streamlit as st
-from transformers import AutoTokenizer, AutoModelForQuestionAnswering
+from sentence_transformers import SentenceTransformer
+from helper import load_texts, build_knowledge_base
+from sklearn.metrics.pairwise import cosine_similarity
 import torch
-import os
-from utils import extract_text_from_pdf, extract_text_from_word, process_text, get_answer
 
-tokenizer = AutoTokenizer.from_pretrained("model/your_model_directory", force_download=True)
-model = AutoModelForQuestionAnswering.from_pretrained("model/your_model_directory", force_download=True)
+st.set_page_config(page_title="Multilingual FAQ Bot", layout="wide")
+st.title("🧠 Multilingual Internal FAQ Bot")
 
-st.title("Internal Knowledge Bot")
+@st.cache_resource
+def load_model_and_data():
+    model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+    texts = load_texts("data")
+    chunks, embeddings, sources = build_knowledge_base(texts, model)
+    return model, chunks, embeddings, sources
 
-uploaded_file = st.file_uploader("Upload a PDF or Word file", type=["pdf", "docx"])
-if uploaded_file:
-    # Extract text based on file type
-    if uploaded_file.type == "application/pdf":
-        text = extract_text_from_pdf(uploaded_file)
-    elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        text = extract_text_from_word(uploaded_file)
+model, chunks, embeddings, sources = load_model_and_data()
 
-    processed_text = process_text(text)
+question = st.text_input("Frage stellen (z. B. auf Deutsch, Englisch, etc.):")
 
-    st.write("Text processed successfully!")
-
-    question = st.text_input("Ask a question:")
-
-    if question:
-        answer = get_answer(question, processed_text, tokenizer, model)
-        st.write(f"Answer: {answer}")
+if question:
+    q_embed = model.encode([question], convert_to_tensor=True)
+    sims = cosine_similarity(q_embed.cpu(), embeddings.cpu())[0]
+    top_idx = sims.argmax()
+    st.markdown(f"**Antwort:** {chunks[top_idx]}")
+    st.caption(f"Quelle: {sources[top_idx]}")
