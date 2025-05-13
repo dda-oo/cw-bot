@@ -2,7 +2,3 @@ streamlit
 transformers
 sentence-transformers
 langdetect
-datasets
-faiss-cpu
-torch
-python-dotenv
